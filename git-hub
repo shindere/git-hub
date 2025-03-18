@@ -50,6 +50,7 @@ import os.path
 import argparse
 import subprocess
 from functools import partial
+from zipfile import ZipFile
 
 # Output levels according to user selected verbosity
 DEBUG = 3
@@ -498,9 +499,15 @@ class RequestManager:
         while url:
             debugf("Request: {} {}\n{}", method, url, body)
             res = self.auth_urlopen(url, method, body, media_type)
-            data = res.read()
+            content_type = res.headers['Content-Type']
+            if "json" not in content_type:
+                print("Not a json file, returning it.   ")
+                return res
+            print("OK, data is a json file.")
+            date = res.read()
             debugf("Response:\n{}", _decode(data))
             if data:
+                print(data)
                 data = json.loads(data)
                 if isinstance(data, list):
                     if prev_data is None:
@@ -2201,6 +2208,64 @@ class RebaseCmd (PullUtil):
 # and we finally add it to the PullCmd class as a member
 PullCmd.RebaseCmd = RebaseCmd
 
+# Interface to GitHub Actions
+
+# Download run logs
+# See https://docs.github.com/fr/rest/actions/workflow-runs?apiVersion=2022-11-28
+
+class ActionCmd (CmdGroup):
+    cmd_name = 'action'
+    cmmd_title = 'subcommands to manage GitHub Actions'
+    cmd_help = 'manage GitHub Actions'
+
+    class DrlCmd (object) :
+        cmd_name = "drl"
+        cmd_title = "download workflow run log"
+        cmd_help = "download workflow run log"
+
+        @classmethod
+        def setup_parser(cls, parser):
+            parser.add_argument('workflowrunid', metavar='RUN', type=int,
+                    help="number identifying the workflow run whose log should be downloaded")
+            parser.add_argument('-R', '--repo', metavar='REPO',
+                    help="repository from which to download logs")
+
+        @classmethod
+        def run(cls, parser, args):
+            id = args.workflowrunid
+            repo = args.repo
+            print(f"Downloading logs for repo {repo}, workflow run {id}")
+            url = f"/repos/{repo}/actions/runs/{id}/logs"
+            zipped_logs = req.get(url)
+            base = "/tmp/github-runs"
+            os.makedirs(base, exist_ok=True)            
+            output_file_path = base + "/" + str(id) + ".zip"
+            with open(output_file_path, 'wb') as out_file:
+                out_file.write(zipped_logs.read())
+            print(f"Zipped logs saved to {output_file_path}")
+            exit(0)
+            # archive = ZipFile(io.BytesIO(zipped_logs.read()))
+            members = len(archive.namelist())
+            files = 0
+            directories = 0
+            files_at_root = 0
+            for file_name in archive.namelist():
+                # print("Considering member", file_name)
+                info = archive.getinfo(file_name)
+                if info.is_dir():
+                    # print("Skipping because it is a directory")
+                    directories += 1
+                    continue
+                # print("Extracting because it is a file")
+                files += 1
+                if '/' not in file_name:
+                    files_at_root += 1
+                output_file_path = os.path.join(path, file_name)
+                os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
+                with archive.open(file_name) as f:
+                    with open(output_file_path, 'wb') as out_file:
+                        out_file.write(f.read())
+            print(f"Run logs extracted under {path}: {members} members = {directories} directories, {files} files, {files_at_root} at root")
 
 # `git hub` command implementation
 class HubCmd (CmdGroup):
@@ -2210,6 +2275,7 @@ class HubCmd (CmdGroup):
     CloneCmd = CloneCmd
     IssueCmd = IssueCmd
     PullCmd = PullCmd
+    ActionCmd = ActionCmd
 
 
 def main():
@@ -2282,7 +2348,7 @@ if __name__ == '__main__':
             errf('{}', pformat(error.headers))
             errf('{}', body)
             sys.exit(3)
-        sys.exit(4)
+        sys.exit(4)  
     except urllib.error.URLError as error:
         errf('Network error: {}', error)
         sys.exit(5)
