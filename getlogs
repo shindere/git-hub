@@ -1,0 +1,8 @@
+#!/bin/sh
+# getlogs shindere/stdcompat 13635841857
+repo=$1
+id=$2
+git hub action drl -R ${repo} ${id}
+# gh run view --log-failed -R ${repo} ${id}
+# | strip-timestamps
+# strip-ansi-esc-seqs

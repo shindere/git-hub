@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+
+# Text-file processor stripping escape sequences
+# Reproduces its standard input verbatim on its standard output, except
+# for escape sequences which are removed
+
+# See https://en.wikipedia.org/wiki/ANSI_escape_code
+# In particular, the regular expression below that describes escape
+# sequences is a translation in Python of the following Paragraph:
+# For Control Sequence Introducer, or CSI, commands, the ESC [ (written
+# as \e[, \x1b[ or \033[ in several programming languages) is followed by
+# any number (including none) of "parameter bytes" in the range 0x30–0x3F
+# (ASCII 0–9:;<=>?), then by any number of "intermediate bytes" in the
+# range 0x20–0x2F (ASCII space and !"#$%&'()*+,-./), then finally by a
+# single "final byte" in the range 0x40–0x7E (ASCII @A–Z[\]^_`a–z{|}~).
+
+import fileinput
+import re
+
+ansi_esc_seq = re.compile(
+  "\\033\\[[0-9:;<=>?]*[ !\"#$%&'()*+,-./]*[@A-Z[\\]^_`a-z{|}~]")
+
+def strip_line(line):
+    return re.sub(ansi_esc_seq, "", line) 
+
+for line in fileinput.input():
+    print(strip_line(line), end='')
