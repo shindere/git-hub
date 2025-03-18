@@ -1,8 +1,28 @@
 #!/bin/sh
-# getlogs shindere/stdcompat 13635841857
+# Downloads, unpacks, prepare and strips logs of GitHub action runs
+# Example of invocation: getlogs shindere/stdcompat 13635841857
+
+# Exit immediately on error
+set -e
+
 repo=$1
 id=$2
+rldir=${HOME}/runlogs
 git hub action drl -R ${repo} ${id}
 # gh run view --log-failed -R ${repo} ${id}
 # | strip-timestamps
 # strip-ansi-esc-seqs
+mkdir -p ${rldir}
+cd ${rldir}
+rm -rf ${id} ${id}.zip
+mv /tmp/github-runs/${id}.zip .
+mkdir ${id}
+cd ${id}
+unzip ../${id}.zip
+for f in ?_*; do mv "$f" 0"$f"; done
+find . -mindepth 1 -type d -print0 | xargs -0 rm -rf
+for f in *.txt; do
+  strip-timestamps < "$f" | strip-ansi-esc-seqs > /tmp/"$f";
+  mv /tmp/"$f" .;
+done
+pwd
