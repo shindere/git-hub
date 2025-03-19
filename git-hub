@@ -501,9 +501,7 @@ class RequestManager:
             res = self.auth_urlopen(url, method, body, media_type)
             content_type = res.headers['Content-Type']
             if "json" not in content_type:
-                print("Not a json file, returning it.   ")
                 return res
-            print("OK, data is a json file.")
             date = res.read()
             debugf("Response:\n{}", _decode(data))
             if data:
